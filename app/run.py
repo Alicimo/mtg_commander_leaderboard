@@ -12,14 +12,12 @@ def main():
         layout="wide",
     )
 
-    # Handle authentication
-    if not login_form():
-        st.stop()  # Don't proceed unless authenticated
-
     engine = get_engine()
     init_db(engine)  # Ensure tables exist
 
     if "admin" in st.query_params:
+        if not login_form():
+            st.stop()  # Don't proceed unless authenticated
         show_admin_page(engine)
     else:
         logout_button()
