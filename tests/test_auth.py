@@ -59,10 +59,11 @@ def test_login_form_success(mock_env_password):
     with patch("streamlit.form_submit_button", return_value=True):
         with patch("streamlit.text_input", return_value="test123"):
             with patch("streamlit.error") as mock_error:
-                result = login_form()
-                assert result is True
-                assert st.session_state.authenticated is True
-                mock_error.assert_not_called()
+                with patch("app.auth.check_password", return_value=True):
+                    result = login_form()
+                    assert result is True
+                    assert st.session_state.authenticated is True
+                    mock_error.assert_not_called()
 
 
 def test_login_form_failure(mock_env_password):
