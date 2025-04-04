@@ -16,18 +16,16 @@ def main():
     if not login_form():
         st.stop()  # Don't proceed unless authenticated
 
-    # Get query params
-    query_params = st.query_params
     engine = get_engine()
 
-    if "admin" in query_params:
+    if "admin" in st.query_params:
         show_admin_page(engine)
     else:
         logout_button()
         st.title("MTG Commander Leaderboard")
         st.write("Welcome to the Commander leaderboard system!")
         if st.button("Go to Admin Dashboard"):
-            st.experimental_set_query_params(admin=True)
+            st.query_params["admin"] = True
             st.rerun()
 
 
