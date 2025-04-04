@@ -44,4 +44,5 @@ def test_table_structures(test_db):
 
 def test_connection_working(test_db):
     """Test connection check works."""
+    from app.db import test_connection
     assert test_connection(test_db)
