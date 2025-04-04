@@ -17,6 +17,7 @@ def main():
         st.stop()  # Don't proceed unless authenticated
 
     engine = get_engine()
+    init_db(engine)  # Ensure tables exist
 
     if "admin" in st.query_params:
         show_admin_page(engine)
