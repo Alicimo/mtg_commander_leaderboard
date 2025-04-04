@@ -1,5 +1,7 @@
 import streamlit as st
 from auth import login_form, logout_button
+from admin import show_admin_page
+from db import get_engine
 
 
 def main():
@@ -13,10 +15,19 @@ def main():
     if not login_form():
         st.stop()  # Don't proceed unless authenticated
 
-    logout_button()
+    # Get query params
+    query_params = st.experimental_get_query_params()
+    engine = get_engine()
 
-    st.title("MTG Commander Leaderboard")
-    st.write("Welcome to the Commander leaderboard system!")
+    if "admin" in query_params:
+        show_admin_page(engine)
+    else:
+        logout_button()
+        st.title("MTG Commander Leaderboard")
+        st.write("Welcome to the Commander leaderboard system!")
+        if st.button("Go to Admin Dashboard"):
+            st.experimental_set_query_params(admin=True)
+            st.rerun()
 
 
 if __name__ == "__main__":

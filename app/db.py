@@ -68,8 +68,11 @@ def init_db(engine: Optional[Engine] = None) -> Engine:
         sa.Column("elo_change", sa.Float, nullable=False),
     )
 
-    # Create all tables
-    metadata.create_all(engine)
+    # Create all tables with foreign key constraints
+    with engine.begin() as conn:
+        metadata.create_all(conn)
+        # Enable foreign key constraints for SQLite
+        conn.execute(sa.text("PRAGMA foreign_keys = ON"))
 
     return engine
 
