@@ -1,6 +1,6 @@
 import streamlit as st
+from auth import login_form, logout_button
 
-from app.auth import login_form, logout_button
 
 def main():
     st.set_page_config(
@@ -17,6 +17,7 @@ def main():
 
     st.title("MTG Commander Leaderboard")
     st.write("Welcome to the Commander leaderboard system!")
+
 
 if __name__ == "__main__":
     main()
