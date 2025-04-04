@@ -10,4 +10,5 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "sqlalchemy>=2.0.40",
     "streamlit>=1.44.1",
+    "watchdog>=6.0.0",
 ]

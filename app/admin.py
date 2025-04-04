@@ -1,8 +1,7 @@
-import streamlit as st
 import sqlalchemy as sa
-from sqlalchemy.engine import Engine
+import streamlit as st
 
-from auth import login_form, logout_button
+from app.auth import logout_button
 
 
 def show_admin_page(engine: sa.engine.Engine) -> None:
@@ -24,7 +23,9 @@ def show_admin_page(engine: sa.engine.Engine) -> None:
                     try:
                         with engine.begin() as conn:
                             conn.execute(
-                                sa.text("INSERT INTO players (name, elo) VALUES (:name, 1000)"),
+                                sa.text(
+                                    "INSERT INTO players (name, elo) VALUES (:name, 1000)"
+                                ),
                                 {"name": name},
                             )
                         st.success(f"Added player: {name}")
@@ -34,8 +35,10 @@ def show_admin_page(engine: sa.engine.Engine) -> None:
         st.header("Delete Player")
         with st.form("delete_player"):
             with engine.connect() as conn:
-                players = conn.execute(sa.text("SELECT id, name FROM players")).fetchall()
-            
+                players = conn.execute(
+                    sa.text("SELECT id, name FROM players")
+                ).fetchall()
+
             if not players:
                 st.warning("No players to delete")
             else:
@@ -70,7 +73,7 @@ def show_admin_page(engine: sa.engine.Engine) -> None:
             players = conn.execute(
                 sa.text("SELECT id, name, elo FROM players ORDER BY elo DESC")
             ).fetchall()
-        
+
         if not players:
             st.info("No players yet")
         else:

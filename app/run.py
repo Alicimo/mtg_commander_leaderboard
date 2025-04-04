@@ -1,7 +1,8 @@
 import streamlit as st
-from auth import login_form, logout_button
-from admin import show_admin_page
-from db import get_engine
+
+from app.admin import show_admin_page
+from app.auth import login_form, logout_button
+from app.db import get_engine
 
 
 def main():
@@ -16,7 +17,7 @@ def main():
         st.stop()  # Don't proceed unless authenticated
 
     # Get query params
-    query_params = st.experimental_get_query_params()
+    query_params = st.query_params
     engine = get_engine()
 
     if "admin" in query_params:

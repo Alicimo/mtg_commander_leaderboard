@@ -53,24 +53,20 @@ def login_form() -> bool:
     init_session()
 
     if is_session_valid():
-        print("bar")
         return True
 
     with st.form("login"):
         password = st.text_input("Password", type="password")
         submitted = st.form_submit_button("Login")
-        print(password, submitted, check_password(password))
 
         if submitted:
             if check_password(password):
-                print(1)
                 st.session_state.authenticated = True
                 st.session_state.login_time = time.time()
                 st.rerun()
                 return True
             else:
                 st.error("Incorrect password")
-    print(3)
     return False
 
 
