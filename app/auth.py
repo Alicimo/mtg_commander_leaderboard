@@ -23,9 +23,12 @@ def check_password(password: str) -> bool:
         return False
     
     # Use constant-time comparison to prevent timing attacks
-    return len(password) == len(stored_pw) and all(
-        ord(a) ^ ord(b) for a, b in zip(password, stored_pw)
-    )
+    if len(password) != len(stored_pw):
+        return False
+    result = 0
+    for a, b in zip(password, stored_pw):
+        result |= ord(a) ^ ord(b)
+    return result == 0
 
 def init_session() -> None:
     """Initialize session state for authentication."""
