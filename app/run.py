@@ -2,7 +2,7 @@ import streamlit as st
 
 from app.admin import show_admin_page
 from app.auth import login_form, logout_button
-from app.db import get_engine
+from app.db import get_engine, init_db
 
 
 def main():
