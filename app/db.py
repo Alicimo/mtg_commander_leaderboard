@@ -1,16 +1,25 @@
+import datetime
+import json
 import os
-from typing import Optional
+import shutil
+from pathlib import Path
+from typing import Any, Optional
 
 import sqlalchemy as sa
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, Row
 
-DB_PATH = "data/commander.db"
+# Define base path and ensure data directory exists
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)
+
+DB_PATH = DATA_DIR / "commander.db"
 SCHEMA_VERSION = 1
 
 
-def get_engine() -> Engine:
+def get_engine(db_path: Path = DB_PATH) -> Engine:
     """Create and return SQLAlchemy engine."""
-    db_url = f"sqlite:///{DB_PATH}"
+    db_url = f"sqlite:///{db_path}"
     return sa.create_engine(db_url)
 
 
@@ -18,9 +27,6 @@ def init_db(engine: Optional[Engine] = None) -> Engine:
     """Initialize database with schema if not exists."""
     if engine is None:
         engine = get_engine()
-
-    # Create data directory if needed
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
     metadata = sa.MetaData()
 
@@ -83,5 +89,46 @@ def check_connection(engine: Engine) -> bool:
         with engine.connect() as conn:
             conn.execute(sa.text("SELECT sqlite_version()"))
         return True
-    except Exception:
+    except Exception as e:
+        print(f"Connection check failed: {e}")
         return False
+
+
+# --- Data Export Functions ---
+
+def _json_serializer(obj: Any) -> str:
+    """JSON serializer for objects not serializable by default json code"""
+    if isinstance(obj, (datetime.date, datetime.datetime)):
+        return obj.isoformat()
+    if isinstance(obj, Row): # Handle SQLAlchemy Row objects
+        return dict(obj._mapping)
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+
+def export_db_to_json(engine: Engine) -> str:
+    """Export all database tables to a JSON string."""
+    metadata = sa.MetaData()
+    metadata.reflect(bind=engine)
+    all_data: dict[str, Any] = {"schema_version": SCHEMA_VERSION, "tables": {}}
+
+    with engine.connect() as connection:
+        for table_name, table in metadata.tables.items():
+            select_query = sa.select(table)
+            result = connection.execute(select_query).fetchall()
+            # Convert list of Row objects to list of dicts
+            all_data["tables"][table_name] = [row._asdict() for row in result]
+
+    return json.dumps(all_data, indent=2, default=_json_serializer)
+
+
+def backup_sqlite_db(target_dir: Path = DATA_DIR) -> Path:
+    """Copy the SQLite database file to a timestamped backup file."""
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_filename = f"commander_backup_{timestamp}.db"
+    backup_path = target_dir / backup_filename
+
+    try:
+        shutil.copyfile(DB_PATH, backup_path)
+        return backup_path
+    except OSError as e:
+        raise OSError(f"Failed to create SQLite backup: {e}") from e
