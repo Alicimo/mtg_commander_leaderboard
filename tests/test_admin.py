@@ -1,18 +1,17 @@
 import json
-import os
 import shutil
 from datetime import date
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import sqlalchemy as sa
 
 from app.admin import show_admin_page
 from app.db import (
-    DB_PATH,
     SCHEMA_VERSION,
     backup_sqlite_db,
+    check_connection,
     export_db_to_json,
     get_engine,
     init_db,
