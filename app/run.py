@@ -3,6 +3,7 @@ import streamlit as st
 from app.admin import show_admin_page
 from app.auth import login_form, logout_button
 from app.db import get_engine, init_db
+from app.game import show_game_form
 
 
 def main():
@@ -22,7 +23,15 @@ def main():
     else:
         logout_button()
         st.title("MTG Commander Leaderboard")
-        st.write("Welcome to the Commander leaderboard system!")
+        
+        tab1, tab2 = st.tabs(["Submit Game", "Leaderboard"])
+        
+        with tab1:
+            show_game_form(engine)
+            
+        with tab2:
+            st.write("Leaderboard coming soon!")
+            
         if st.button("Go to Admin Dashboard"):
             st.query_params["admin"] = True
             st.rerun()
