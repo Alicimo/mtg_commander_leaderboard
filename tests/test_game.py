@@ -8,16 +8,18 @@ from app.game import validate_game_submission, submit_game
 from app.db import get_engine, init_db
 
 @pytest.fixture
-def test_db():
+def test_db(tmp_path):
     """Test database fixture"""
-    engine = get_engine("sqlite:///:memory:")
+    # Use a temporary file instead of :memory: to avoid connection issues
+    db_path = tmp_path / "test.db"
+    engine = get_engine(f"sqlite:///{db_path}")
     init_db(engine)
     with engine.begin() as conn:
         conn.execute(
             sa.text("INSERT INTO players (name, elo) VALUES (:name, :elo)"),
             [
                 {"name": "Alice", "elo": 1000},
-                {"name": "Bob", "elo": 1000},
+                {"name": "Bob", "elo": 1000}, 
                 {"name": "Charlie", "elo": 1000},
             ]
         )
