@@ -7,11 +7,11 @@ from sqlalchemy.engine import Engine
 
 def validate_game_submission(players: List[str], winner: str) -> Optional[str]:
     """Validate game submission data.
-    
+
     Args:
         players: List of player names
         winner: Name of winner
-        
+
     Returns:
         str: Error message if invalid, None if valid
     """
@@ -28,7 +28,7 @@ def submit_game(
     winner: str,
 ) -> None:
     """Submit a game to the database.
-    
+
     Args:
         engine: SQLAlchemy engine
         date: Game date
@@ -38,20 +38,16 @@ def submit_game(
     with engine.begin() as conn:
         # Get player IDs
         # SQLite requires expanding the IN clause parameters
-        if len(players) == 1:
-            query = sa.text("SELECT id FROM players WHERE name = :name")
-            player_ids = [conn.execute(query, {"name": players[0]}).fetchone()]
-        else:
-            placeholders = ",".join([f":name{i}" for i in range(len(players))])
-            query = sa.text(f"SELECT id FROM players WHERE name IN ({placeholders})")
-            params = {f"name{i}": name for i, name in enumerate(players)}
-            player_ids = conn.execute(query, params).fetchall()
-        
+        placeholders = ",".join([f":name{i}" for i in range(len(players))])
+        query = sa.text(f"SELECT id FROM players WHERE name IN ({placeholders})")
+        params = {f"name{i}": name for i, name in enumerate(players)}
+        player_ids = conn.execute(query, params).fetchall()
+
         winner_id = conn.execute(
             sa.text("SELECT id FROM players WHERE name = :name"),
             {"name": winner}
         ).scalar()
-        
+
         # Insert game record
         game_id = conn.execute(
             sa.text(
@@ -59,7 +55,7 @@ def submit_game(
             ),
             {"date": date, "winner_id": winner_id}
         ).lastrowid
-        
+
         # TODO: Add ELO calculations and commander selection
         # For now just record basic game info
         for player_id in player_ids:
@@ -74,7 +70,7 @@ def submit_game(
 def show_game_form(engine: Engine) -> None:
     """Render game submission form."""
     st.header("Submit New Game")
-    
+
     with st.form("game_form"):
         # Date picker with today as default
         game_date = st.date_input(
@@ -82,30 +78,30 @@ def show_game_form(engine: Engine) -> None:
             value=datetime.date.today(),
             max_value=datetime.date.today()
         )
-        
+
         # Get all players from DB
         with engine.connect() as conn:
             players = conn.execute(
                 sa.text("SELECT name FROM players ORDER BY name")
             ).fetchall()
             player_names = [p.name for p in players]
-        
+
         # Multi-select players
         selected_players = st.multiselect(
             "Players",
             options=player_names,
             default=None,
         )
-        
+
         # Winner dropdown (only shows selected players)
         winner = st.selectbox(
             "Winner",
             options=selected_players,
             disabled=not selected_players,
         )
-        
+
         submitted = st.form_submit_button("Submit Game")
-        
+
         if submitted:
             error = validate_game_submission(selected_players, winner)
             if error:
