@@ -1,12 +1,12 @@
-import os
+import json
 import shutil
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import sqlalchemy as sa
 
 from app.db import (
-    DB_PATH,
     SCHEMA_VERSION,
     backup_sqlite_db,
     check_connection,
@@ -30,14 +30,14 @@ def test_db():
 
     engine = get_engine(db_path=TEST_DB_PATH)
     init_db(engine)
-    yield engine # Provide the engine to the test
+    yield engine  # Provide the engine to the test
 
     # Cleanup after test
     engine.dispose()
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
     if TEST_DATA_DIR.exists() and not any(TEST_DATA_DIR.iterdir()):
-         TEST_DATA_DIR.rmdir() # Remove dir only if empty
+        TEST_DATA_DIR.rmdir()  # Remove dir only if empty
 
 
 def test_db_initialization(test_db):
@@ -99,7 +99,7 @@ def test_backup_sqlite_db(test_db):
         assert backup_path.parent == backup_dir
         assert backup_path.name.startswith("commander_backup_")
         assert backup_path.name.endswith(".db")
-        assert backup_path.stat().st_size > 0 # Check file is not empty
+        assert backup_path.stat().st_size > 0  # Check file is not empty
 
         # Simple check: try to connect to the backup
         backup_engine = get_engine(db_path=backup_path)
@@ -108,7 +108,7 @@ def test_backup_sqlite_db(test_db):
 
     finally:
         # Clean up backup file and directory
-        if 'backup_path' in locals() and backup_path.exists():
+        if "backup_path" in locals() and backup_path.exists():
             backup_path.unlink()
         if backup_dir.exists():
             shutil.rmtree(backup_dir)
@@ -128,7 +128,7 @@ def test_export_db_to_json(test_db):
     assert "players" in data["tables"]
     assert len(data["tables"]["players"]) == 1
     assert data["tables"]["players"][0]["name"] == "Test Player"
-    assert data["tables"]["players"][0]["elo"] == 1000.0 # Default ELO
+    assert data["tables"]["players"][0]["elo"] == 1000.0  # Default ELO
     # Check other tables are present but empty
     assert "commanders" in data["tables"] and len(data["tables"]["commanders"]) == 0
     assert "games" in data["tables"] and len(data["tables"]["games"]) == 0
