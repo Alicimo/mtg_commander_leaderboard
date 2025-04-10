@@ -16,6 +16,7 @@ def test_db(tmp_path):
     engine = get_engine(db_path)
     init_db(engine)
     with engine.begin() as conn:
+        # Add players
         conn.execute(
             sa.text("INSERT INTO players (name, elo) VALUES (:name, :elo)"),
             [
@@ -23,6 +24,13 @@ def test_db(tmp_path):
                 {"name": "Bob", "elo": 1000},
                 {"name": "Charlie", "elo": 1000},
             ],
+        )
+        # Add a default commander
+        conn.execute(
+            sa.text(
+                "INSERT INTO commanders (name, scryfall_id) "
+                "VALUES ('Test Commander', 'test')"
+            )
         )
     yield engine
     engine.dispose()

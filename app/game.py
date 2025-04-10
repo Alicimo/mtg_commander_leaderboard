@@ -48,23 +48,45 @@ def submit_game(
             {"name": winner}
         ).scalar()
 
-        # Insert game record
+        # Get a default commander ID (for testing)
+        commander_id = conn.execute(
+            sa.text("SELECT id FROM commanders LIMIT 1")
+        ).scalar()
+        if not commander_id:
+            # If no commanders exist, create a default one
+            commander_id = conn.execute(
+                sa.text(
+                    "INSERT INTO commanders (name, scryfall_id) "
+                    "VALUES ('Unknown Commander', 'default')"
+                )
+            ).lastrowid
+
+        # Insert game record with required commander ID
         game_id = conn.execute(
             sa.text(
-                "INSERT INTO games (date, winner_id) VALUES (:date, :winner_id)"
+                "INSERT INTO games (date, winner_id, winner_commander_id) "
+                "VALUES (:date, :winner_id, :commander_id)"
             ),
-            {"date": date, "winner_id": winner_id}
+            {
+                "date": date, 
+                "winner_id": winner_id,
+                "commander_id": commander_id
+            }
         ).lastrowid
 
-        # TODO: Add ELO calculations and commander selection
-        # For now just record basic game info
+        # Record all players in the game with their commanders
         for player_id in player_ids:
             conn.execute(
                 sa.text(
-                    "INSERT INTO game_players (game_id, player_id) "
-                    "VALUES (:game_id, :player_id)"
+                    "INSERT INTO game_players "
+                    "(game_id, player_id, commander_id, elo_change) "
+                    "VALUES (:game_id, :player_id, :commander_id, 0)"
                 ),
-                {"game_id": game_id, "player_id": player_id}
+                {
+                    "game_id": game_id, 
+                    "player_id": player_id,
+                    "commander_id": commander_id
+                }
             )
 
 def show_game_form(engine: Engine) -> None:
