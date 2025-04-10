@@ -90,10 +90,12 @@ def test_add_player(test_db):
             with patch("streamlit.success") as mock_success:
                 show_admin_page(test_db)
                 mock_success.assert_called_once_with("Added player: Test Player")
-
+    
     # Verify player was added
     with test_db.connect() as conn:
-        result = conn.execute(sa.text("SELECT name FROM players")).scalar()
+        result = conn.execute(
+            sa.text("SELECT name FROM players WHERE name = 'Test Player'")
+        ).scalar()
         assert result == "Test Player"
 
 
@@ -116,12 +118,13 @@ def test_delete_player(test_db):
     """Test player deletion."""
     # Add test player
     with test_db.begin() as conn:
-        conn.execute(
+        result = conn.execute(
             sa.text("INSERT INTO players (name, elo) VALUES ('Test Player', 1000)")
         )
-
+        player_id = result.lastrowid
+    
     with patch("streamlit.form_submit_button", return_value=True):
-        with patch("streamlit.selectbox", return_value="Test Player (ID: 1)"):
+        with patch("streamlit.selectbox", return_value=f"Test Player (ID: {player_id})"):
             with patch("streamlit.checkbox", return_value=True):
                 with patch("streamlit.success") as mock_success:
                     show_admin_page(test_db)

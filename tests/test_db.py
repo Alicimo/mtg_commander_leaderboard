@@ -118,7 +118,9 @@ def test_export_db_to_json(test_db):
     """Test exporting database contents to JSON."""
     # Add some data to export
     with test_db.begin() as conn:
-        conn.execute(sa.text("INSERT INTO players (name) VALUES ('Test Player')"))
+        conn.execute(
+            sa.text("INSERT INTO players (name, elo) VALUES ('Test Player', 1000)")
+        )
 
     json_output = export_db_to_json(test_db)
     data = json.loads(json_output)
