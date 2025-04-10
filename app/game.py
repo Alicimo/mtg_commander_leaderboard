@@ -37,10 +37,11 @@ def submit_game(
     """
     with engine.begin() as conn:
         # Get player IDs
-        player_ids = conn.execute(
-            sa.text("SELECT id FROM players WHERE name IN :names"),
-            {"names": tuple(players)}
-        ).fetchall()
+        # SQLite requires expanding the IN clause parameters
+        query = sa.text(
+            f"SELECT id FROM players WHERE name IN ({','.join(['?']*len(players))})"
+        )
+        player_ids = conn.execute(query, players).fetchall()
         
         winner_id = conn.execute(
             sa.text("SELECT id FROM players WHERE name = :name"),
