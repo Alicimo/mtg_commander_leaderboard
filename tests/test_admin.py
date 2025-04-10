@@ -58,8 +58,8 @@ def test_db():
             [
                 {
                     "date": date(2024, 1, 1),
-                    "wid": 1, # Alice
-                    "wcid": 1, # Commander A
+                    "wid": 1,  # Alice
+                    "wcid": 1,  # Commander A
                 }
             ],
         )
@@ -68,19 +68,19 @@ def test_db():
                 "INSERT INTO game_players (game_id, player_id, commander_id, elo_change) VALUES (:gid, :pid, :cid, :elo)"
             ),
             [
-                {"gid": 1, "pid": 1, "cid": 1, "elo": 10.0}, # Alice won
-                {"gid": 1, "pid": 2, "cid": 2, "elo": -10.0}, # Bob lost
+                {"gid": 1, "pid": 1, "cid": 1, "elo": 10.0},  # Alice won
+                {"gid": 1, "pid": 2, "cid": 2, "elo": -10.0},  # Bob lost
             ],
         )
 
-    yield engine # Provide the engine to the test
+    yield engine  # Provide the engine to the test
 
     # Cleanup after test
     engine.dispose()
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
     if TEST_DATA_DIR.exists() and not any(TEST_DATA_DIR.iterdir()):
-         TEST_DATA_DIR.rmdir() # Remove dir only if empty
+        TEST_DATA_DIR.rmdir()  # Remove dir only if empty
 
 
 def test_add_player(test_db):
@@ -90,7 +90,7 @@ def test_add_player(test_db):
             with patch("streamlit.success") as mock_success:
                 show_admin_page(test_db)
                 mock_success.assert_called_once_with("Added player: Test Player")
-    
+
     # Verify player was added
     with test_db.connect() as conn:
         result = conn.execute(
@@ -111,7 +111,9 @@ def test_duplicate_player(test_db):
         with patch("streamlit.text_input", return_value="Test Player"):
             with patch("streamlit.error") as mock_error:
                 show_admin_page(test_db)
-                mock_error.assert_called_once_with("Player 'Test Player' already exists")
+                mock_error.assert_called_once_with(
+                    "Player 'Test Player' already exists"
+                )
 
 
 def test_delete_player(test_db):
@@ -122,21 +124,26 @@ def test_delete_player(test_db):
             sa.text("INSERT INTO players (name, elo) VALUES ('Test Player', 1000)")
         )
         player_id = result.lastrowid
-    
+
     with patch("streamlit.form_submit_button", return_value=True):
-        with patch("streamlit.selectbox", return_value=f"Test Player (ID: {player_id})"):
+        with patch(
+            "streamlit.selectbox", return_value=f"Test Player (ID: {player_id})"
+        ):
             with patch("streamlit.checkbox", return_value=True):
                 with patch("streamlit.success") as mock_success:
                     show_admin_page(test_db)
-                    mock_success.assert_called_once_with("Deleted player: Test Player (ID: 1)")
+                    mock_success.assert_called_once_with(
+                        "Deleted player: Test Player (ID: 3)"
+                    )
 
     # Verify player was deleted
     with test_db.connect() as conn:
         result = conn.execute(sa.text("SELECT COUNT(*) FROM players")).scalar()
-        assert result == 0
+        assert result == 2
 
 
 # --- Export Tests ---
+
 
 # Patch DB_PATH for export functions during testing
 @patch("app.db.DB_PATH", TEST_DB_PATH)
@@ -152,7 +159,7 @@ def test_export_sqlite(test_db):
         assert backup_path.parent == backup_dir
         assert backup_path.name.startswith("commander_backup_")
         assert backup_path.name.endswith(".db")
-        assert backup_path.stat().st_size > 0 # Check file is not empty
+        assert backup_path.stat().st_size > 0  # Check file is not empty
 
         # Simple check: try to connect to the backup
         backup_engine = get_engine(db_path=backup_path)
@@ -161,7 +168,7 @@ def test_export_sqlite(test_db):
 
     finally:
         # Clean up backup file and directory
-        if 'backup_path' in locals() and backup_path.exists():
+        if "backup_path" in locals() and backup_path.exists():
             backup_path.unlink()
         if backup_dir.exists():
             shutil.rmtree(backup_dir)
@@ -187,11 +194,11 @@ def test_export_json(test_db):
     # Check games table data (and date format)
     assert len(data["tables"]["games"]) == 1
     assert data["tables"]["games"][0]["date"] == "2024-01-01"
-    assert data["tables"]["games"][0]["winner_id"] == 1 # Alice
+    assert data["tables"]["games"][0]["winner_id"] == 1  # Alice
 
     # Check game_players data
     assert len(data["tables"]["game_players"]) == 2
-    assert data["tables"]["game_players"][0]["player_id"] == 1 # Alice
+    assert data["tables"]["game_players"][0]["player_id"] == 1  # Alice
     assert data["tables"]["game_players"][0]["elo_change"] == 10.0
 
 
