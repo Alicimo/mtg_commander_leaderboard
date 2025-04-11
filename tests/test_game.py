@@ -71,7 +71,7 @@ def test_submit_game(test_db):
 def test_submit_game_transaction(test_db):
     """Test that failed submissions don't leave partial data"""
     # This should fail due to invalid winner
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError, match="Winner must be one of the selected players"):
         submit_game(
             test_db,
             datetime.date.today(),

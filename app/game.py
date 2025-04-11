@@ -36,7 +36,13 @@ def submit_game(
         date: Game date
         players: List of player names
         winner: Name of winner
+
+    Raises:
+        ValueError: If winner is not in players list
     """
+    # Validate winner is in players list
+    if winner not in players:
+        raise ValueError("Winner must be one of the selected players")
     with engine.begin() as conn:
         # Get player IDs
         # SQLite requires expanding the IN clause parameters
