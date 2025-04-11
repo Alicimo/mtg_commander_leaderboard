@@ -5,6 +5,7 @@ import sqlalchemy as sa
 import streamlit as st
 from sqlalchemy.engine import Engine
 
+
 def validate_game_submission(players: List[str], winner: str) -> Optional[str]:
     """Validate game submission data.
 
@@ -20,6 +21,7 @@ def validate_game_submission(players: List[str], winner: str) -> Optional[str]:
     if winner not in players:
         return "Winner must be one of the selected players"
     return None
+
 
 def submit_game(
     engine: Engine,
@@ -41,11 +43,10 @@ def submit_game(
         placeholders = ",".join([f":name{i}" for i in range(len(players))])
         query = sa.text(f"SELECT id FROM players WHERE name IN ({placeholders})")
         params = {f"name{i}": name for i, name in enumerate(players)}
-        player_ids = conn.execute(query, params).fetchall()
+        player_ids = [p.id for p in conn.execute(query, params).fetchall()]
 
         winner_id = conn.execute(
-            sa.text("SELECT id FROM players WHERE name = :name"),
-            {"name": winner}
+            sa.text("SELECT id FROM players WHERE name = :name"), {"name": winner}
         ).scalar()
 
         # Get a default commander ID (for testing)
@@ -67,11 +68,7 @@ def submit_game(
                 "INSERT INTO games (date, winner_id, winner_commander_id) "
                 "VALUES (:date, :winner_id, :commander_id)"
             ),
-            {
-                "date": date, 
-                "winner_id": winner_id,
-                "commander_id": commander_id
-            }
+            {"date": date, "winner_id": winner_id, "commander_id": commander_id},
         ).lastrowid
 
         # Record all players in the game with their commanders
@@ -83,11 +80,12 @@ def submit_game(
                     "VALUES (:game_id, :player_id, :commander_id, 0)"
                 ),
                 {
-                    "game_id": game_id, 
+                    "game_id": game_id,
                     "player_id": player_id,
-                    "commander_id": commander_id
-                }
+                    "commander_id": commander_id,
+                },
             )
+
 
 def show_game_form(engine: Engine) -> None:
     """Render game submission form."""
@@ -96,9 +94,7 @@ def show_game_form(engine: Engine) -> None:
     with st.form("game_form"):
         # Date picker with today as default
         game_date = st.date_input(
-            "Game Date",
-            value=datetime.date.today(),
-            max_value=datetime.date.today()
+            "Game Date", value=datetime.date.today(), max_value=datetime.date.today()
         )
 
         # Get all players from DB
@@ -126,6 +122,7 @@ def show_game_form(engine: Engine) -> None:
 
         if submitted:
             error = validate_game_submission(selected_players, winner)
+            print(error)
             if error:
                 st.error(error)
             else:
