@@ -40,9 +40,10 @@ def submit_game(
     Raises:
         ValueError: If winner is not in players list
     """
-    # Validate winner is in players list
-    if winner not in players:
-        raise ValueError("Winner must be one of the selected players")
+    error = validate_game_submission(players, winner)
+    if error:
+        raise ValueError(error)
+
     with engine.begin() as conn:
         # Get player IDs
         # SQLite requires expanding the IN clause parameters
@@ -127,14 +128,9 @@ def show_game_form(engine: Engine) -> None:
         submitted = st.form_submit_button("Submit Game")
 
         if submitted:
-            error = validate_game_submission(selected_players, winner)
-            print(error)
-            if error:
-                st.error(error)
-            else:
-                try:
-                    submit_game(engine, game_date, selected_players, winner)
-                    st.success("Game submitted successfully!")
-                    st.rerun()  # Reset form
-                except Exception as e:
-                    st.error(f"Error submitting game: {e}")
+            try:
+                submit_game(engine, game_date, selected_players, winner)
+                st.success("Game submitted successfully!")
+                st.rerun()  # Reset form
+            except Exception as e:
+                st.error(f"Error submitting game: {e}")
