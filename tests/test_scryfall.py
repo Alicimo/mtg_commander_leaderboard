@@ -14,6 +14,18 @@ from app.scryfall import (
 )
 
 
+@pytest.fixture(scope="function")
+def test_db(tmp_path):
+    """Test database fixture"""
+    db_path = tmp_path / "test.db"
+    if db_path.exists():
+        db_path.unlink()
+    engine = get_engine(db_path)
+    init_db(engine)
+    yield engine
+    engine.dispose()
+
+
 @pytest.fixture
 def mock_scryfall_response():
     return {

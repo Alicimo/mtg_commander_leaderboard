@@ -53,7 +53,8 @@ def test_validate_game_submission():
 def test_submit_game(test_db):
     """Test game submission to database"""
     # Submit a valid game
-    submit_game(test_db, datetime.date.today(), ["Alice", "Bob"], "Alice")
+    commanders = {"Alice": "Test Commander", "Bob": "Test Commander"}
+    submit_game(test_db, datetime.date.today(), ["Alice", "Bob"], commanders, "Alice")
 
     # Verify data was inserted
     with test_db.connect() as conn:
@@ -72,10 +73,12 @@ def test_submit_game_transaction(test_db):
     """Test that failed submissions don't leave partial data"""
     # This should fail due to invalid winner
     with pytest.raises(ValueError, match="Winner must be one of the selected players"):
+        commanders = {"Alice": "Test Commander", "Bob": "Test Commander"}
         submit_game(
             test_db,
             datetime.date.today(),
             ["Alice", "Bob"],
+            commanders,
             "Charlie",  # Not in players list
         )
 
