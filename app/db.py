@@ -44,6 +44,7 @@ def init_db(engine: Optional[Engine] = None) -> Engine:
         sa.Column("id", sa.Integer, primary_key=True),
         sa.Column("name", sa.String(200), nullable=False),
         sa.Column("scryfall_id", sa.String(50), unique=True, nullable=False),
+        sa.Column("last_searched", sa.DateTime),
     )
 
     sa.Table(

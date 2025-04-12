@@ -1,9 +1,11 @@
 import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import sqlalchemy as sa
 import streamlit as st
 from sqlalchemy.engine import Engine
+
+from app.scryfall import get_player_commanders, search_commanders
 
 
 def validate_game_submission(players: List[str], winner: str) -> Optional[str]:
@@ -27,6 +29,7 @@ def submit_game(
     engine: Engine,
     date: datetime.date,
     players: List[str],
+    commanders: Dict[str, str],
     winner: str,
 ) -> None:
     """Submit a game to the database.
@@ -56,26 +59,35 @@ def submit_game(
             sa.text("SELECT id FROM players WHERE name = :name"), {"name": winner}
         ).scalar()
 
-        # Get a default commander ID (for testing)
-        commander_id = conn.execute(
-            sa.text("SELECT id FROM commanders LIMIT 1")
-        ).scalar()
-        if not commander_id:
-            # If no commanders exist, create a default one
+        # Get commander IDs for all players
+        commander_ids = {}
+        for player, commander in commanders.items():
+            # Find or create commander
             commander_id = conn.execute(
                 sa.text(
-                    "INSERT INTO commanders (name, scryfall_id) "
-                    "VALUES ('Unknown Commander', 'default')"
-                )
-            ).lastrowid
+                    "INSERT OR IGNORE INTO commanders (name, scryfall_id) "
+                    "VALUES (:name, 'unknown') RETURNING id"
+                ),
+                {"name": commander},
+            ).scalar()
+            if not commander_id:  # If already exists
+                commander_id = conn.execute(
+                    sa.text("SELECT id FROM commanders WHERE name = :name"),
+                    {"name": commander},
+                ).scalar()
+            commander_ids[player] = commander_id
 
-        # Insert game record with required commander ID
+        # Insert game record with winner's commander
         game_id = conn.execute(
             sa.text(
                 "INSERT INTO games (date, winner_id, winner_commander_id) "
                 "VALUES (:date, :winner_id, :commander_id)"
             ),
-            {"date": date, "winner_id": winner_id, "commander_id": commander_id},
+            {
+                "date": date, 
+                "winner_id": winner_id, 
+                "commander_id": commander_ids[winner]
+            },
         ).lastrowid
 
         # Record all players in the game with their commanders
@@ -89,13 +101,13 @@ def submit_game(
                 {
                     "game_id": game_id,
                     "player_id": player_id,
-                    "commander_id": commander_id,
+                    "commander_id": commander_ids[player_name],
                 },
             )
 
 
 def show_game_form(engine: Engine) -> None:
-    """Render game submission form."""
+    """Render game submission form with commander selection."""
     st.header("Submit New Game")
 
     with st.form("game_form"):
@@ -117,6 +129,47 @@ def show_game_form(engine: Engine) -> None:
             options=player_names,
             default=None,
         )
+
+        # Commander selection for each player
+        commanders = {}
+        if selected_players:
+            st.subheader("Commanders")
+            for player in selected_players:
+                # Get player's previous commanders first
+                prev_commanders = get_player_commanders(engine, player)
+                
+                # Add search box for new commanders
+                search_term = st.text_input(
+                    f"Search commander for {player}",
+                    value="",
+                    key=f"commander_search_{player}",
+                )
+                
+                # Combine previous and search results
+                options = []
+                if prev_commanders:
+                    options.extend([(c["name"], "recent") for c in prev_commanders])
+                
+                if search_term:
+                    search_results = search_commanders(engine, search_term)
+                    options.extend([(c["name"], "search") for c in search_results])
+                
+                # Remove duplicates while preserving order
+                seen = set()
+                unique_options = []
+                for name, source in options:
+                    if name not in seen:
+                        seen.add(name)
+                        unique_options.append((name, source))
+                
+                # Show dropdown with sources indicated
+                selected = st.selectbox(
+                    f"Select commander for {player}",
+                    options=[o[0] for o in unique_options],
+                    format_func=lambda x: f"{x} (recent)" if any(o[0] == x and o[1] == "recent" for o in unique_options) else x,
+                    key=f"commander_select_{player}",
+                )
+                commanders[player] = selected
 
         # Winner dropdown (only shows selected players)
         winner = st.selectbox(
