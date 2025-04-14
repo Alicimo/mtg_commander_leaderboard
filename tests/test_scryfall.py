@@ -96,7 +96,7 @@ def test_get_player_commanders(test_db):
         alice_id = conn.execute(
             sa.text("SELECT id FROM players WHERE name = 'Alice'")
         ).scalar()
-        
+
         # Add commanders
         conn.execute(
             sa.text(
@@ -104,7 +104,7 @@ def test_get_player_commanders(test_db):
                 "VALUES ('Commander A', '111'), ('Commander B', '222')"
             )
         )
-        
+
         # Add games
         conn.execute(
             sa.text(
@@ -113,7 +113,7 @@ def test_get_player_commanders(test_db):
             ),
             {"aid": alice_id},
         )
-        
+
         # Add game players
         conn.execute(
             sa.text(
