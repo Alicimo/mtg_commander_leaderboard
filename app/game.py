@@ -25,13 +25,15 @@ def validate_game_submission(players: List[str], winner: str) -> Optional[str]:
     return None
 
 
+from app.elo import update_elos_in_db
+
 def submit_game(
     engine: Engine,
     date: datetime.date,
     players: List[str],
     commanders: Dict[str, str],
     winner: str,
-) -> None:
+) -> Dict[str, float]:
     """Submit a game to the database.
 
     Args:
@@ -90,7 +92,7 @@ def submit_game(
             },
         ).lastrowid
 
-        # Record all players in the game with their commanders
+        # Record all players in the game with their commanders (initial 0 delta)
         for player_id in player_ids:
             conn.execute(
                 sa.text(
@@ -104,6 +106,10 @@ def submit_game(
                     "commander_id": commander_ids[player],
                 },
             )
+        
+        # Calculate and apply ELO changes
+        loser_ids = [pid for pid in player_ids if pid != winner_id]
+        return update_elos_in_db(engine, game_id, winner_id, loser_ids)
 
 
 def show_game_form(engine: Engine) -> None:
