@@ -81,7 +81,14 @@ def test_db(tmp_path):
                 {"name": "Charlie", "elo": 1000},
             ],
         )
-        # Add a game
+        # Add a commander first
+        conn.execute(
+            sa.text(
+                "INSERT INTO commanders (name, scryfall_id) "
+                "VALUES ('Test Commander', 'test')"
+            )
+        )
+        # Add a game with valid commander reference
         conn.execute(
             sa.text(
                 "INSERT INTO games (date, winner_id, winner_commander_id) "

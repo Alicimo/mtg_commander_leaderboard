@@ -57,12 +57,12 @@ def calculate_elo(
         losers_new_elos.append(loser_elo + delta)
         losers_deltas.append(delta)
     
-    # Round to 2 decimal places for final results
+    # Convert to float before rounding to avoid Decimal issues
     return EloResult(
-        winner_new_elo=round(winner_new_elo, 2),
-        losers_new_elos=[round(elo, 2) for elo in losers_new_elos],
-        winner_delta=round(total_winner_delta, 2),
-        losers_deltas=[round(delta, 2) for delta in losers_deltas],
+        winner_new_elo=Decimal(str(round(float(winner_new_elo), 2)),
+        losers_new_elos=[Decimal(str(round(float(elo), 2)) for elo in losers_new_elos],
+        winner_delta=Decimal(str(round(float(total_winner_delta), 2)),
+        losers_deltas=[Decimal(str(round(float(delta), 2)) for delta in losers_deltas],
     )
 
 
@@ -92,12 +92,11 @@ def update_elos_in_db(
             {"id": winner_id},
         ).scalar()
         
-        losers_elos = [
-            r.elo for r in conn.execute(
-                sa.text("SELECT elo FROM players WHERE id IN :ids"),
-                {"ids": tuple(loser_ids)},
-            ).fetchall()
-        ]
+        # SQLite requires expanding the IN clause parameters
+        placeholders = ",".join([f":id{i}" for i in range(len(loser_ids))])
+        query = sa.text(f"SELECT elo FROM players WHERE id IN ({placeholders})")
+        params = {f"id{i}": id for i, id in enumerate(loser_ids)}
+        losers_elos = [r.elo for r in conn.execute(query, params).fetchall()]
         
         # Calculate changes
         result = calculate_elo(winner_elo, losers_elos, k_factor)
