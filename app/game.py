@@ -101,7 +101,7 @@ def submit_game(
                 {
                     "game_id": game_id,
                     "player_id": player_id,
-                    "commander_id": commander_ids[player_name],
+                    "commander_id": commander_ids[player],
                 },
             )
 

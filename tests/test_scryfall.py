@@ -5,6 +5,7 @@ import pytest
 import requests
 import sqlalchemy as sa
 
+from app.db import get_engine, init_db
 from app.scryfall import (
     cache_commanders,
     get_cached_commanders,
