@@ -25,7 +25,7 @@ def validate_game_submission(players: List[str], winner: str) -> Optional[str]:
     return None
 
 
-from app.elo import update_elos_in_db
+from app.elo import update_elos_in_db, EloResult
 
 def submit_game(
     engine: Engine,

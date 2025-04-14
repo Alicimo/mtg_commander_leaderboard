@@ -60,9 +60,9 @@ def calculate_elo(
     # Convert to float before rounding to avoid Decimal issues
     return EloResult(
         winner_new_elo=Decimal(str(round(float(winner_new_elo), 2)),
-        losers_new_elos=[Decimal(str(round(float(elo), 2)) for elo in losers_new_elos],
+        losers_new_elos=[Decimal(str(round(float(elo), 2))) for elo in losers_new_elos],
         winner_delta=Decimal(str(round(float(total_winner_delta), 2)),
-        losers_deltas=[Decimal(str(round(float(delta), 2)) for delta in losers_deltas],
+        losers_deltas=[Decimal(str(round(float(delta), 2))) for delta in losers_deltas],
     )
 
 
