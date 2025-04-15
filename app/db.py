@@ -121,6 +121,47 @@ def export_db_to_json(engine: Engine) -> str:
     return json.dumps(all_data, indent=2, default=_json_serializer)
 
 
+def get_player_leaderboard(engine: Engine) -> list[dict]:
+    """Get player leaderboard sorted by ELO."""
+    with engine.connect() as conn:
+        results = conn.execute(
+            sa.text("""
+                SELECT 
+                    id, 
+                    name, 
+                    elo,
+                    RANK() OVER (ORDER BY elo DESC) as rank
+                FROM players
+                ORDER BY elo DESC
+            """)
+        ).fetchall()
+        return [dict(r._mapping) for r in results]
+
+
+def get_player_commander_leaderboard(engine: Engine) -> list[dict]:
+    """Get player+commander leaderboard sorted by average ELO."""
+    with engine.connect() as conn:
+        results = conn.execute(
+            sa.text("""
+                SELECT 
+                    p.id as player_id,
+                    p.name as player_name,
+                    c.id as commander_id,
+                    c.name as commander_name,
+                    AVG(gp.elo_change) as avg_elo_change,
+                    COUNT(*) as games_played,
+                    RANK() OVER (ORDER BY AVG(gp.elo_change) DESC) as rank
+                FROM game_players gp
+                JOIN players p ON gp.player_id = p.id
+                JOIN commanders c ON gp.commander_id = c.id
+                GROUP BY p.id, c.id
+                HAVING COUNT(*) >= 3  -- Minimum 3 games to appear
+                ORDER BY avg_elo_change DESC
+            """)
+        ).fetchall()
+        return [dict(r._mapping) for r in results]
+
+
 def backup_sqlite_db(target_dir: Path = DATA_DIR) -> Path:
     """Copy the SQLite database file to a timestamped backup file."""
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")

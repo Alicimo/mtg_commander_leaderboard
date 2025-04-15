@@ -30,7 +30,8 @@ def main():
             show_game_form(engine)
             
         with tab2:
-            st.write("Leaderboard coming soon!")
+            from app.leaderboard import show_leaderboard
+            show_leaderboard(engine)
             
         if st.button("Go to Admin Dashboard"):
             st.query_params["admin"] = True

@@ -116,6 +116,72 @@ def test_backup_sqlite_db(test_db):
             shutil.rmtree(backup_dir)
 
 
+def test_get_player_leaderboard(test_db):
+    """Test player leaderboard query."""
+    with test_db.begin() as conn:
+        conn.execute(
+            sa.text("INSERT INTO players (name, elo) VALUES (:name, :elo)"),
+            [
+                {"name": "Alice", "elo": 1050},
+                {"name": "Bob", "elo": 950},
+                {"name": "Charlie", "elo": 1000},
+            ],
+        )
+
+    results = get_player_leaderboard(test_db)
+    assert len(results) == 3
+    assert results[0]["name"] == "Alice"
+    assert results[0]["rank"] == 1
+    assert results[1]["name"] == "Charlie"
+    assert results[1]["rank"] == 2
+    assert results[2]["name"] == "Bob"
+    assert results[2]["rank"] == 3
+
+
+def test_get_player_commander_leaderboard(test_db):
+    """Test player+commander leaderboard query."""
+    # Setup test data
+    with test_db.begin() as conn:
+        # Add players
+        conn.execute(
+            sa.text("INSERT INTO players (name, elo) VALUES (:name, :elo)"),
+            [
+                {"name": "Alice", "elo": 1000},
+                {"name": "Bob", "elo": 1000},
+            ],
+        )
+        # Add commanders
+        conn.execute(
+            sa.text(
+                "INSERT INTO commanders (name, scryfall_id) "
+                "VALUES ('Commander A', '111'), ('Commander B', '222')"
+            ),
+        )
+        # Add games
+        conn.execute(
+            sa.text(
+                "INSERT INTO games (date, winner_id, winner_commander_id) "
+                "VALUES ('2024-01-01', 1, 1), ('2024-01-02', 1, 1), ('2024-01-03', 2, 2)"
+            ),
+        )
+        # Add game players with ELO changes
+        conn.execute(
+            sa.text(
+                "INSERT INTO game_players (game_id, player_id, commander_id, elo_change) "
+                "VALUES (1, 1, 1, 10), (1, 2, 2, -10), "
+                "(2, 1, 1, 5), (2, 2, 2, -5), "
+                "(3, 1, 1, -8), (3, 2, 2, 8)"
+            ),
+        )
+
+    results = get_player_commander_leaderboard(test_db)
+    assert len(results) == 2
+    assert results[0]["player_name"] == "Alice"
+    assert results[0]["commander_name"] == "Commander A"
+    assert results[0]["avg_elo_change"] == pytest.approx((10 + 5 - 8) / 3)
+    assert results[0]["games_played"] == 3
+
+
 def test_export_db_to_json(test_db):
     """Test exporting database contents to JSON."""
     # Add some data to export
