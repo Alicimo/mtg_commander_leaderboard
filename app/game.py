@@ -28,7 +28,7 @@ def validate_game_submission(players: List[str], winner: str) -> Optional[str]:
 from app.elo import update_elos_in_db, EloResult
 
 def submit_game(
-    engine: Engine,
+    engine_or_conn: Union[Engine, Connection],
     date: datetime.date,
     players: List[str],
     commanders: Dict[str, str],
@@ -49,7 +49,11 @@ def submit_game(
     if error:
         raise ValueError(error)
 
-    with engine.begin() as conn:
+    # Handle both Engine and Connection inputs
+    if isinstance(engine_or_conn, Engine):
+        conn = engine_or_conn.begin()
+    else:
+        conn = engine_or_conn
         # Get player IDs
         # SQLite requires expanding the IN clause parameters
         placeholders = ",".join([f":name{i}" for i in range(len(players))])
