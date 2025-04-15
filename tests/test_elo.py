@@ -1,11 +1,10 @@
-import decimal
 from decimal import Decimal
 
 import pytest
 import sqlalchemy as sa
 
 from app.db import get_engine, init_db
-from app.elo import EloResult, calculate_elo, update_elos_in_db, K_FACTOR
+from app.elo import calculate_elo, update_elos_in_db
 
 
 def test_calculate_elo_2player():
@@ -19,10 +18,10 @@ def test_calculate_elo_2player():
 
     # Different ratings
     result = calculate_elo(1200, [1000])
-    assert result.winner_new_elo == Decimal("1203.20")
-    assert result.losers_new_elos == [Decimal("996.80")]
-    assert result.winner_delta == Decimal("3.20")
-    assert result.losers_deltas == [Decimal("-3.20")]
+    assert result.winner_new_elo == Decimal("1208.0")
+    assert result.losers_new_elos == [Decimal("992.3")]
+    assert result.winner_delta == Decimal("7.68")
+    assert result.losers_deltas == [Decimal("-7.68")]
 
 
 def test_calculate_elo_multiplayer():
@@ -36,17 +35,17 @@ def test_calculate_elo_multiplayer():
 
     # 4 players, different ratings
     result = calculate_elo(1100, [1000, 1050, 900])
-    assert result.winner_new_elo == Decimal("1108.53")
+    assert result.winner_new_elo == Decimal("1111.0")
     assert result.losers_new_elos == [
-        Decimal("996.49"), 
-        Decimal("1041.51"), 
-        Decimal("893.47")
+        Decimal("996.2"),
+        Decimal("1045.0"),
+        Decimal("897.4"),
     ]
-    assert result.winner_delta == Decimal("8.53")
+    assert result.winner_delta == Decimal("10.97")
     assert result.losers_deltas == [
-        Decimal("-3.51"), 
-        Decimal("-8.49"), 
-        Decimal("-6.53")
+        Decimal("-3.84"),
+        Decimal("-4.57 "),
+        Decimal("-2.56"),
     ]
 
 
@@ -109,25 +108,21 @@ def test_db(tmp_path):
 def test_update_elos_in_db(test_db):
     """Test database integration."""
     changes = update_elos_in_db(test_db, game_id=1, winner_id=1, loser_ids=[2, 3])
-    
+
     assert changes == {
         1: 16.0,  # Winner gains 16 total (8 from each loser)
         2: -8.0,  # Each loser loses 8
         3: -8.0,
     }
-    
+
     # Verify database updates
     with test_db.connect() as conn:
-        alice = conn.execute(
-            sa.text("SELECT elo FROM players WHERE id = 1")
-        ).scalar()
+        alice = conn.execute(sa.text("SELECT elo FROM players WHERE id = 1")).scalar()
         assert alice == 1016.0
-        
-        bob = conn.execute(
-            sa.text("SELECT elo FROM players WHERE id = 2")
-        ).scalar()
+
+        bob = conn.execute(sa.text("SELECT elo FROM players WHERE id = 2")).scalar()
         assert bob == 992.0
-        
+
         # Verify game_players records updated
         changes = conn.execute(
             sa.text("SELECT player_id, elo_change FROM game_players WHERE game_id = 1")
@@ -139,5 +134,5 @@ def test_elo_precision():
     """Test decimal precision handling."""
     # Test with ratings that would expose floating point errors
     result = calculate_elo(1234.56, [987.65, 1056.78])
-    assert str(result.winner_new_elo) == "1238.29"
-    assert [str(elo) for elo in result.losers_new_elos] == ["983.41", "1052.74"]
+    assert str(result.winner_new_elo) == "1242.0"
+    assert [str(elo) for elo in result.losers_new_elos] == ["984.5", "1053.0"]

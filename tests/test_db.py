@@ -38,6 +38,7 @@ def test_db():
         TEST_DB_PATH.unlink()
     if TEST_DATA_DIR.exists() and not any(TEST_DATA_DIR.iterdir()):
         TEST_DATA_DIR.rmdir()  # Remove dir only if empty
+        
 
 
 def test_db_initialization(test_db):
@@ -71,6 +72,7 @@ def test_table_structures(test_db):
         "id": sa.INTEGER,
         "name": sa.VARCHAR,
         "scryfall_id": sa.VARCHAR,
+        "last_searched": sa.DATETIME
     }
 
 
