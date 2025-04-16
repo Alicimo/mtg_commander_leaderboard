@@ -8,10 +8,9 @@ import sqlalchemy as sa
 from app.db import get_engine, init_db
 from app.scryfall import (
     cache_commanders,
-    get_cached_commanders,
     get_player_commanders,
-    get_similar_cached_commanders,
     search_commanders,
+    load_all_commanders,
 )
 
 
@@ -45,34 +44,35 @@ def mock_scryfall_response():
     }
 
 
-def test_search_commanders_api_success(mock_scryfall_response, test_db):
+def test_load_all_commanders(mock_scryfall_response, test_db):
     with patch("requests.get") as mock_get:
         mock_get.return_value.json.return_value = mock_scryfall_response
         mock_get.return_value.raise_for_status.return_value = None
 
-        results = search_commanders(test_db, "atraxa")
-        assert len(results) == 2
-        assert results[0]["name"] == "Atraxa, Praetors' Voice"
-        assert results[0]["scryfall_id"] == "123"
+        load_all_commanders(test_db)
+        
+        # Verify commanders were loaded
+        with test_db.connect() as conn:
+            count = conn.execute(sa.text("SELECT COUNT(*) FROM commanders")).scalar()
+            assert count == 2
+            names = [r[0] for r in conn.execute(sa.text("SELECT name FROM commanders")).fetchall()]
+            assert "Atraxa, Praetors' Voice" in names
+            assert "Kinnan, Bonder Prodigy" in names
 
 
-def test_search_commanders_api_fallback(test_db):
-    with patch("requests.get") as mock_get:
-        mock_get.side_effect = requests.RequestException
-
-        # First seed some cached data
-        with test_db.begin() as conn:
-            conn.execute(
-                sa.text(
-                    "INSERT INTO commanders (name, scryfall_id, last_searched) "
-                    "VALUES ('Cached Commander', '789', :now)"
-                ),
-                {"now": datetime.datetime.now()},
+def test_search_commanders_local(test_db):
+    # Seed some test data
+    with test_db.begin() as conn:
+        conn.execute(
+            sa.text(
+                "INSERT INTO commanders (name, scryfall_id) "
+                "VALUES ('Test Commander', '123'), ('Another Commander', '456')"
             )
+        )
 
-        results = search_commanders(test_db, "cached")
-        assert len(results) == 1
-        assert results[0]["name"] == "Cached Commander"
+    results = search_commanders(test_db, "test")
+    assert len(results) == 1
+    assert results[0]["name"] == "Test Commander"
 
 
 def test_cache_commanders(test_db):
