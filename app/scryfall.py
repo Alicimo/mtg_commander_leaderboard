@@ -1,6 +1,6 @@
 import datetime
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import requests
 import sqlalchemy as sa
@@ -37,15 +37,17 @@ def load_all_commanders(engine: Engine) -> None:
             timeout=30,
         )
         response.raise_for_status()
-        
+
         commanders = []
         for card in response.json()["data"]:
-            commanders.append({
-                "name": card["name"],
-                "scryfall_id": card["id"],
-                "image_url": card.get("image_uris", {}).get("normal", "")
-            })
-        
+            commanders.append(
+                {
+                    "name": card["name"],
+                    "scryfall_id": card["id"],
+                    "image_url": card.get("image_uris", {}).get("normal", ""),
+                }
+            )
+
         # Bulk insert
         with engine.begin() as conn:
             for cmd in commanders:
@@ -58,7 +60,7 @@ def load_all_commanders(engine: Engine) -> None:
                 )
 
     except requests.RequestException as e:
-        st.error(f"Failed to load commanders: {e}")
+        raise RuntimeError(f"Failed to load commanders: {e}")
 
 
 def search_commanders(engine: Engine, query: str) -> List[Dict[str, str]]:
@@ -73,29 +75,10 @@ def search_commanders(engine: Engine, query: str) -> List[Dict[str, str]]:
             {"query": f"%{query}%"},
         ).fetchall()
         return [dict(r._mapping) for r in results]
-        response.raise_for_status()
-        
-        commanders = []
-        for card in response.json()["data"]:
-            commanders.append({
-                "name": card["name"],
-                "scryfall_id": card["id"],
-                "image_url": card.get("image_uris", {}).get("normal", "")
-            })
-        
-        # Cache results
-        cache_commanders(engine, query, commanders)
-        return commanders
-        
-    except (requests.RequestException, KeyError):
-        # Fall back to any cached results (even if not exact match)
-        return get_similar_cached_commanders(engine, query)
 
 
 def cache_commanders(
-    engine: Engine, 
-    query: str, 
-    commanders: List[Dict[str, str]]
+    engine: Engine, query: str, commanders: List[Dict[str, str]]
 ) -> None:
     """Cache commander search results."""
     with engine.begin() as conn:
@@ -116,8 +99,6 @@ def cache_commanders(
                 ),
                 {"now": datetime.datetime.now(), "scryfall_id": cmd["scryfall_id"]},
             )
-
-
 
 
 def get_player_commanders(engine: Engine, player_name: str) -> List[Dict[str, str]]:
