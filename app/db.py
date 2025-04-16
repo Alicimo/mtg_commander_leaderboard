@@ -172,7 +172,7 @@ def get_game_history(engine: Engine, page: int = 1, per_page: int = 20) -> tuple
                 JOIN players p_winner ON g.winner_id = p_winner.id
                 JOIN commanders c_winner ON g.winner_commander_id = c_winner.id
                 JOIN game_players gp ON g.id = gp.game_id
-                JOIN players p_loser ON gp.player_id = p_loser.id AND gp.player_id != g.winner_id
+                JOIN players p_loser ON gp.player_id = p_loser.id
                 JOIN commanders c_loser ON gp.commander_id = c_loser.id
                 GROUP BY g.id
                 ORDER BY g.date ASC, g.id ASC
