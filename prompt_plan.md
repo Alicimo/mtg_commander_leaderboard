@@ -170,7 +170,6 @@ Implement game history table:
 Requirements:
 - Server-side pagination
 - Preserve sort on page change
-- CSV export button
 - Load testing
 ```
 

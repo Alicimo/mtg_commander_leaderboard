@@ -1,3 +1,4 @@
+import datetime
 import json
 import shutil
 from pathlib import Path
@@ -12,9 +13,10 @@ from app.db import (
     check_connection,
     export_db_to_json,
     get_engine,
-    init_db,
-    get_player_leaderboard,
+    get_game_history,
     get_player_commander_leaderboard,
+    get_player_leaderboard,
+    init_db,
 )
 
 # Define test data directory relative to this file
@@ -40,7 +42,6 @@ def test_db():
         TEST_DB_PATH.unlink()
     if TEST_DATA_DIR.exists() and not any(TEST_DATA_DIR.iterdir()):
         TEST_DATA_DIR.rmdir()  # Remove dir only if empty
-        
 
 
 def test_db_initialization(test_db):
@@ -74,7 +75,7 @@ def test_table_structures(test_db):
         "id": sa.INTEGER,
         "name": sa.VARCHAR,
         "scryfall_id": sa.VARCHAR,
-        "last_searched": sa.DATETIME
+        "last_searched": sa.DATETIME,
     }
 
 
@@ -146,11 +147,15 @@ def test_get_game_history(test_db):
     with test_db.begin() as conn:
         # Add players
         conn.execute(
-            sa.text("INSERT INTO players (name, elo) VALUES ('Alice', 1000), ('Bob', 1000)")
+            sa.text(
+                "INSERT INTO players (name, elo) VALUES ('Alice', 1000), ('Bob', 1000)"
+            )
         )
         # Add commanders
         conn.execute(
-            sa.text("INSERT INTO commanders (name, scryfall_id) VALUES ('CmdA', '1'), ('CmdB', '2')")
+            sa.text(
+                "INSERT INTO commanders (name, scryfall_id) VALUES ('CmdA', '1'), ('CmdB', '2')"
+            )
         )
         # Add 25 test games
         for i in range(1, 26):
@@ -159,25 +164,25 @@ def test_get_game_history(test_db):
                     "INSERT INTO games (date, winner_id, winner_commander_id) "
                     "VALUES (:date, 1, 1)"
                 ),
-                {"date": datetime.date(2024, 1, i)}
+                {"date": datetime.date(2024, 1, i)},
             )
             conn.execute(
                 sa.text(
                     "INSERT INTO game_players (game_id, player_id, commander_id, elo_change) "
                     "VALUES (:gid, 1, 1, 10), (:gid, 2, 2, -10)"
                 ),
-                {"gid": i}
+                {"gid": i},
             )
 
     # Test pagination
     page1, total = get_game_history(test_db, page=1)
     assert len(page1) == 20
     assert total == 25
-    assert page1[0]["date"] == datetime.date(2024, 1, 1)  # Oldest first
-    
+    assert page1[0]["date"] == "2024-01-01"  # Oldest first
+
     page2, total = get_game_history(test_db, page=2)
     assert len(page2) == 5
-    assert page2[0]["date"] == datetime.date(2024, 1, 21)
+    assert page2[0]["date"] == "2024-01-21"
 
 
 def test_get_player_commander_leaderboard(test_db):

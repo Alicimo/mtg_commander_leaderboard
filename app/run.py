@@ -1,3 +1,5 @@
+import sys
+
 import streamlit as st
 
 from app.admin import show_admin_page
@@ -6,6 +8,9 @@ from app.db import get_engine, init_db
 from app.game import show_game_form
 from app.leaderboard import show_leaderboard
 from app.scryfall import load_all_commanders
+
+print(sys.path)
+sys.path.append(".")
 
 
 def main():
@@ -36,9 +41,10 @@ def main():
 
         with tab2:
             show_game_form(engine)
-            
+
         with tab3:
             from app.history import show_game_history
+
             show_game_history(engine)
 
         if st.sidebar.button("Go to Admin Dashboard"):
