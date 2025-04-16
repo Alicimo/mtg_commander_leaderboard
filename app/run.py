@@ -4,6 +4,7 @@ from app.admin import show_admin_page
 from app.auth import login_form, logout_button
 from app.db import get_engine, init_db
 from app.game import show_game_form
+from app.scryfall import load_all_commanders
 
 
 def main():
@@ -15,6 +16,7 @@ def main():
 
     engine = get_engine()
     init_db(engine)  # Ensure tables exist
+    load_all_commanders(engine)  # Pre-load commanders
 
     if "admin" in st.query_params:
         if not login_form():

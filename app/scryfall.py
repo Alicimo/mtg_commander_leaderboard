@@ -20,25 +20,59 @@ def _rate_limit() -> None:
     LAST_CALL_TIME = time.time()
 
 
-def search_commanders(engine: Engine, query: str) -> List[Dict[str, str]]:
-    """Search for commanders using Scryfall API with caching."""
+def load_all_commanders(engine: Engine) -> None:
+    """Load all legal commanders from Scryfall into cache."""
     _rate_limit()
-    
-    # First check cache
-    cached = get_cached_commanders(engine, query)
-    if cached:
-        return cached
-
     try:
+        # Check if we already have commanders loaded
+        with engine.connect() as conn:
+            count = conn.execute(sa.text("SELECT COUNT(*) FROM commanders")).scalar()
+            if count > 0:
+                return
+
+        # Get all commanders in one bulk request
         response = requests.get(
             f"{SCRYFALL_API}/cards/search",
-            params={
-                "q": f"{query} is:commander",
-                "unique": "cards",
-                "order": "edhrec",
-            },
-            timeout=5,
+            params={"q": "is:commander", "unique": "cards", "order": "edhrec"},
+            timeout=30,
         )
+        response.raise_for_status()
+        
+        commanders = []
+        for card in response.json()["data"]:
+            commanders.append({
+                "name": card["name"],
+                "scryfall_id": card["id"],
+                "image_url": card.get("image_uris", {}).get("normal", "")
+            })
+        
+        # Bulk insert
+        with engine.begin() as conn:
+            for cmd in commanders:
+                conn.execute(
+                    sa.text(
+                        "INSERT OR IGNORE INTO commanders (name, scryfall_id) "
+                        "VALUES (:name, :scryfall_id)"
+                    ),
+                    {"name": cmd["name"], "scryfall_id": cmd["scryfall_id"]},
+                )
+
+    except requests.RequestException as e:
+        st.error(f"Failed to load commanders: {e}")
+
+
+def search_commanders(engine: Engine, query: str) -> List[Dict[str, str]]:
+    """Search for commanders using local cache only."""
+    with engine.connect() as conn:
+        results = conn.execute(
+            sa.text(
+                "SELECT name, scryfall_id FROM commanders "
+                "WHERE name LIKE :query "
+                "ORDER BY name LIMIT 20"
+            ),
+            {"query": f"%{query}%"},
+        ).fetchall()
+        return [dict(r._mapping) for r in results]
         response.raise_for_status()
         
         commanders = []
@@ -84,34 +118,6 @@ def cache_commanders(
             )
 
 
-def get_cached_commanders(engine: Engine, query: str) -> List[Dict[str, str]]:
-    """Get exact match cached commanders."""
-    with engine.connect() as conn:
-        results = conn.execute(
-            sa.text(
-                "SELECT name, scryfall_id FROM commanders "
-                "WHERE name LIKE :query AND last_searched > :expiry "
-                "ORDER BY last_searched DESC LIMIT 20"
-            ),
-            {
-                "query": f"%{query}%",
-                "expiry": datetime.datetime.now() - datetime.timedelta(days=7),
-            },
-        ).fetchall()
-        return [dict(r._mapping) for r in results]
-
-
-def get_similar_cached_commanders(engine: Engine, query: str) -> List[Dict[str, str]]:
-    """Get loosely matching cached commanders when API fails."""
-    with engine.connect() as conn:
-        results = conn.execute(
-            sa.text(
-                "SELECT name, scryfall_id FROM commanders "
-                "WHERE name LIKE :query ORDER BY last_searched DESC LIMIT 10"
-            ),
-            {"query": f"%{query}%"},
-        ).fetchall()
-        return [dict(r._mapping) for r in results]
 
 
 def get_player_commanders(engine: Engine, player_name: str) -> List[Dict[str, str]]:
