@@ -29,13 +29,17 @@ def main():
     else:
         st.title("MTG Commander Leaderboard")
 
-        tab1, tab2 = st.tabs(["Leaderboard", "Submit Game"])
+        tab1, tab2, tab3 = st.tabs(["Leaderboard", "Submit Game", "Game History"])
 
         with tab1:
             show_leaderboard(engine)
 
         with tab2:
             show_game_form(engine)
+            
+        with tab3:
+            from app.history import show_game_history
+            show_game_history(engine)
 
         if st.sidebar.button("Go to Admin Dashboard"):
             st.session_state.admin = True

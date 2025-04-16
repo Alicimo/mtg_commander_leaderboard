@@ -140,6 +140,46 @@ def test_get_player_leaderboard(test_db):
     assert results[2]["rank"] == 3
 
 
+def test_get_game_history(test_db):
+    """Test game history pagination."""
+    # Setup test data
+    with test_db.begin() as conn:
+        # Add players
+        conn.execute(
+            sa.text("INSERT INTO players (name, elo) VALUES ('Alice', 1000), ('Bob', 1000)")
+        )
+        # Add commanders
+        conn.execute(
+            sa.text("INSERT INTO commanders (name, scryfall_id) VALUES ('CmdA', '1'), ('CmdB', '2')")
+        )
+        # Add 25 test games
+        for i in range(1, 26):
+            conn.execute(
+                sa.text(
+                    "INSERT INTO games (date, winner_id, winner_commander_id) "
+                    "VALUES (:date, 1, 1)"
+                ),
+                {"date": datetime.date(2024, 1, i)}
+            )
+            conn.execute(
+                sa.text(
+                    "INSERT INTO game_players (game_id, player_id, commander_id, elo_change) "
+                    "VALUES (:gid, 1, 1, 10), (:gid, 2, 2, -10)"
+                ),
+                {"gid": i}
+            )
+
+    # Test pagination
+    page1, total = get_game_history(test_db, page=1)
+    assert len(page1) == 20
+    assert total == 25
+    assert page1[0]["date"] == datetime.date(2024, 1, 1)  # Oldest first
+    
+    page2, total = get_game_history(test_db, page=2)
+    assert len(page2) == 5
+    assert page2[0]["date"] == datetime.date(2024, 1, 21)
+
+
 def test_get_player_commander_leaderboard(test_db):
     """Test player+commander leaderboard query."""
     # Setup test data

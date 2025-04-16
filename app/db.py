@@ -138,6 +138,61 @@ def get_player_leaderboard(engine: Engine) -> list[dict]:
         return [dict(r._mapping) for r in results]
 
 
+def get_game_history(engine: Engine, page: int = 1, per_page: int = 20) -> tuple[list[dict], int]:
+    """Get paginated game history with player and commander info.
+    
+    Args:
+        engine: SQLAlchemy engine
+        page: Page number (1-based)
+        per_page: Items per page
+    
+    Returns:
+        Tuple of (game_records, total_count)
+    """
+    offset = (page - 1) * per_page
+    
+    with engine.connect() as conn:
+        # Get total count
+        total = conn.execute(
+            sa.text("SELECT COUNT(*) FROM games")
+        ).scalar()
+        
+        # Get paginated results
+        results = conn.execute(
+            sa.text("""
+                SELECT 
+                    g.id,
+                    g.date,
+                    p_winner.name as winner_name,
+                    c_winner.name as winner_commander,
+                    GROUP_CONCAT(p_loser.name || ' (' || c_loser.name || ')', ', ') as losers,
+                    SUM(CASE WHEN gp.player_id = g.winner_id THEN gp.elo_change ELSE 0 END) as winner_elo_change,
+                    SUM(CASE WHEN gp.player_id != g.winner_id THEN gp.elo_change ELSE 0 END) as losers_elo_change
+                FROM games g
+                JOIN players p_winner ON g.winner_id = p_winner.id
+                JOIN commanders c_winner ON g.winner_commander_id = c_winner.id
+                JOIN game_players gp ON g.id = gp.game_id
+                JOIN players p_loser ON gp.player_id = p_loser.id AND gp.player_id != g.winner_id
+                JOIN commanders c_loser ON gp.commander_id = c_loser.id
+                GROUP BY g.id
+                ORDER BY g.date ASC, g.id ASC
+                LIMIT :limit OFFSET :offset
+            """),
+            {"limit": per_page, "offset": offset}
+        ).fetchall()
+        
+        games = []
+        for r in results:
+            games.append({
+                "date": r.date,
+                "winner": f"{r.winner_name} ({r.winner_commander})",
+                "losers": r.losers,
+                "elo_changes": f"+{r.winner_elo_change:.0f} / {r.losers_elo_change:.0f}"
+            })
+            
+        return games, total
+
+
 def get_player_commander_leaderboard(engine: Engine) -> list[dict]:
     """Get player+commander leaderboard sorted by average ELO."""
     with engine.connect() as conn:
