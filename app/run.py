@@ -2,15 +2,15 @@ import sys
 
 import streamlit as st
 
+print(sys.path)
+sys.path.append(".")
+
 from app.admin import show_admin_page
 from app.auth import login_form
 from app.db import get_engine, init_db
 from app.game import show_game_form
 from app.leaderboard import show_leaderboard
 from app.scryfall import load_all_commanders
-
-print(sys.path)
-sys.path.append(".")
 
 
 def main():
