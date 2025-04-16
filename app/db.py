@@ -166,13 +166,21 @@ def get_game_history(engine: Engine, page: int = 1, per_page: int = 20) -> tuple
                     p_winner.name as winner_name,
                     c_winner.name as winner_commander,
                     GROUP_CONCAT(p_loser.name || ' (' || c_loser.name || ')', ', ') as losers,
-                    SUM(CASE WHEN gp.player_id = g.winner_id THEN gp.elo_change ELSE 0 END) as winner_elo_change,
-                    SUM(CASE WHEN gp.player_id != g.winner_id THEN gp.elo_change ELSE 0 END) as losers_elo_change
+                    GROUP_CONCAT(
+                        CASE 
+                            WHEN gp.player_id = g.winner_id THEN '+' || gp.elo_change 
+                            ELSE gp.elo_change 
+                        END, 
+                        ', '
+                    ) as elo_changes,
+                    (SELECT gp2.elo_change 
+                     FROM game_players gp2 
+                     WHERE gp2.game_id = g.id AND gp2.player_id = g.winner_id) as winner_elo_change
                 FROM games g
                 JOIN players p_winner ON g.winner_id = p_winner.id
                 JOIN commanders c_winner ON g.winner_commander_id = c_winner.id
                 JOIN game_players gp ON g.id = gp.game_id
-                JOIN players p_loser ON gp.player_id = p_loser.id
+                JOIN players p_loser ON gp.player_id = p_loser.id AND gp.player_id != g.winner_id
                 JOIN commanders c_loser ON gp.commander_id = c_loser.id
                 GROUP BY g.id
                 ORDER BY g.date ASC, g.id ASC
@@ -187,7 +195,7 @@ def get_game_history(engine: Engine, page: int = 1, per_page: int = 20) -> tuple
                 "date": r.date,
                 "winner": f"{r.winner_name} ({r.winner_commander})",
                 "losers": r.losers,
-                "elo_changes": f"+{r.winner_elo_change:.0f} / {r.losers_elo_change:.0f}"
+                "elo_changes": f"+{r.winner_elo_change:.0f} / {r.elo_changes}"
             })
             
         return games, total
