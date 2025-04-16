@@ -54,11 +54,9 @@ def test_submit_game(test_db):
     """Test game submission to database"""
     # Submit a valid game
     commanders = {"Alice": "Test Commander", "Bob": "Test Commander"}
-    
+
     # Use a new connection to avoid locking issues
-    with test_db.connect() as conn:
-        submit_game(conn, datetime.date.today(), ["Alice", "Bob"], commanders, "Alice")
-        conn.commit()  # Explicit commit
+    submit_game(test_db, datetime.date.today(), ["Alice", "Bob"], commanders, "Alice")
 
     # Verify data was inserted using a new connection
     with test_db.connect() as conn:
