@@ -6,7 +6,7 @@ import streamlit as st
 from sqlalchemy.engine import Engine
 
 from app.elo import update_elos_in_db
-from app.scryfall import get_player_commanders, search_commanders
+from app.scryfall import get_player_commanders
 
 
 def validate_game_submission(players: List[str], winner: str) -> Optional[str]:
@@ -49,38 +49,22 @@ def submit_game(
         raise ValueError(error)
 
     with engine.connect() as conn:
-        # Get player IDs
-        # SQLite requires expanding the IN clause parameters
-        placeholders = ",".join([f":name{i}" for i in range(len(players))])
-        query = sa.text(f"SELECT id FROM players WHERE name IN ({placeholders})")
-        params = {f"name{i}": name for i, name in enumerate(players)}
-        player_ids = [p.id for p in conn.execute(query, params).fetchall()]
-
         winner_id = conn.execute(
             sa.text("SELECT id FROM players WHERE name = :name"), {"name": winner}
         ).scalar()
 
-        print(winner_id, player_ids, params, placeholders)
-
-        # Get commander IDs for all players
+        # Get player and commander IDs for all players
+        player_ids = {}
         commander_ids = {}
         for player, commander in commanders.items():
-            # Find or create commander
-            commander_id = conn.execute(
-                sa.text(
-                    "INSERT OR IGNORE INTO commanders (name, scryfall_id) "
-                    "VALUES (:name, 'unknown') RETURNING id"
-                ),
+            player_ids[player] = conn.execute(
+                sa.text("SELECT id FROM players WHERE name = :name"),
+                {"name": player},
+            ).scalar()
+            commander_ids[player] = conn.execute(
+                sa.text("SELECT id FROM commanders WHERE name = :name"),
                 {"name": commander},
             ).scalar()
-            if not commander_id:  # If already exists
-                commander_id = conn.execute(
-                    sa.text("SELECT id FROM commanders WHERE name = :name"),
-                    {"name": commander},
-                ).scalar()
-            commander_ids[player] = commander_id
-
-        print(commander_ids)
 
         # Insert game record with winner's commander
         game_id = conn.execute(
@@ -96,7 +80,7 @@ def submit_game(
         ).lastrowid
 
         # Record all players in the game with their commanders (initial 0 delta)
-        for player_id in player_ids:
+        for player in commanders:
             conn.execute(
                 sa.text(
                     "INSERT INTO game_players "
@@ -105,96 +89,110 @@ def submit_game(
                 ),
                 {
                     "game_id": game_id,
-                    "player_id": player_id,
+                    "player_id": player_ids[player],
                     "commander_id": commander_ids[player],
                 },
             )
 
         # Calculate and apply ELO changes
-        loser_ids = [pid for pid in player_ids if pid != winner_id]
+        loser_ids = [pid for pid in player_ids.values() if pid != winner_id]
         conn.commit()
     return update_elos_in_db(engine, game_id, winner_id, loser_ids)
 
 
 def show_game_form(engine: Engine) -> None:
     """Render game submission form with commander selection."""
+
+    if "form_stage" not in st.session_state:
+        st.session_state.form_stage = "select_players"
+    if "game_date" not in st.session_state:
+        st.session_state.game_date = datetime.date.today()
+    if "selected_players" not in st.session_state:
+        st.session_state.selected_players = []
+
     st.header("Submit New Game")
 
-    with st.form("form_select_players"):
-        # Date picker with today as default
-        game_date = st.date_input(
-            "Game Date", value=datetime.date.today(), max_value=datetime.date.today()
-        )
-
-        # Get all players from DB
-        with engine.connect() as conn:
-            players = conn.execute(
-                sa.text("SELECT name FROM players ORDER BY name")
-            ).fetchall()
-            player_names = [p.name for p in players]
-
-        # Multi-select players
-        selected_players = st.multiselect(
-            "Players",
-            options=player_names,
-        )
-        submitted_players = st.form_submit_button("Next")
-
-    if submitted_players and selected_players:
-        with st.form("form_add_commanders"):
-            # Winner dropdown (only shows selected players)
-            winner = st.selectbox(
-                "Winner",
-                options=selected_players,
+    if st.session_state.form_stage == "select_players":
+        with st.form("form_select_players"):
+            # Game Date
+            st.session_state.game_date = st.date_input(
+                "Game Date",
+                value=st.session_state.game_date,
+                max_value=datetime.date.today(),
             )
 
-            commanders = {}
+            # Get all players from DB
+            with engine.connect() as conn:
+                players = conn.execute(
+                    sa.text("SELECT name FROM players ORDER BY name")
+                ).fetchall()
+                player_names = [p.name for p in players]
+
+            # Multi-select players
+            st.session_state.selected_players = st.multiselect(
+                "Players",
+                options=player_names,
+                default=st.session_state.selected_players,
+            )
+            submitted_players = st.form_submit_button("Next")
+
+            if submitted_players and st.session_state.selected_players:
+                st.session_state.form_stage = "add_commanders"
+                st.rerun()
+
+    elif st.session_state.form_stage == "add_commanders":
+        with st.form("form_add_commanders"):
+            winner = st.selectbox(
+                "Winner",
+                options=st.session_state.selected_players,
+            )
+
+            with engine.connect() as conn:
+                commanders = conn.execute(
+                    sa.text("SELECT name FROM commanders ORDER BY name")
+                ).fetchall()
+                commander_names = [c.name for c in commanders]
+
             st.subheader("Commanders")
-            for player in selected_players:
-                # Get player's previous commanders first
+            submitted_commanders = {}
+            for player in st.session_state.selected_players:
                 prev_commanders = get_player_commanders(engine, player)
-
-                # Add search box for new commanders
-                search_term = st.text_input(
-                    f"Search commander for {player}",
-                    value="",
-                    key=f"commander_search_{player}",
-                )
-
-                # Combine previous and search results
-                options = []
-                if prev_commanders:
-                    options.extend([(c["name"], "recent") for c in prev_commanders])
-
-                if search_term:
-                    search_results = search_commanders(engine, search_term)
-                    options.extend([(c["name"], "search") for c in search_results])
-
-                # Remove duplicates while preserving order
-                seen = set()
-                unique_options = []
-                for name, source in options:
-                    if name not in seen:
-                        seen.add(name)
-                        unique_options.append((name, source))
-
-                # Show dropdown with sources indicated
+                other_commanders = commander_names.copy()
+                for prev in prev_commanders:
+                    other_commanders.remove(prev)
                 selected = st.selectbox(
                     f"Select commander for {player}",
-                    options=[o[0] for o in unique_options],
-                    format_func=lambda x: f"{x} (recent)"
-                    if any(o[0] == x and o[1] == "recent" for o in unique_options)
-                    else x,
+                    options=prev_commanders + other_commanders,
                     key=f"commander_select_{player}",
                 )
-                commanders[player] = selected
+                submitted_commanders[player] = selected
 
             submitted = st.form_submit_button("Submit Game")
 
-            if submitted:
-                try:
-                    submit_game(engine, game_date, selected_players, winner)
-                    st.success("Game submitted successfully!")
-                    st.rerun()  # Reset form
-                except Exception as e:
-                    st.error(f"Error submitting game: {e}")
+        if submitted:
+            try:
+                submit_game(
+                    engine,
+                    st.session_state.game_date,
+                    st.session_state.selected_players,
+                    submitted_commanders,
+                    winner,
+                )
+                st.session_state.form_stage = "success"
+                st.session_state.selected_players = []
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error submitting game: {e}")
+
+        # Add a back button
+        if st.button("Back to player selection"):
+            st.session_state.form_stage = "select_players"
+            st.rerun()
+
+    # display balloons and reset the flag
+    elif st.session_state.form_stage == "success":
+        st.balloons()
+        st.success("Game submitted successfully!")
+        if st.button("Submit another game"):
+            st.session_state.form_stage = "select_players"
+            st.rerun()

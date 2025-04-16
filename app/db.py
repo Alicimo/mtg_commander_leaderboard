@@ -96,11 +96,12 @@ def check_connection(engine: Engine) -> bool:
 
 # --- Data Export Functions ---
 
+
 def _json_serializer(obj: Any) -> str:
     """JSON serializer for objects not serializable by default json code"""
     if isinstance(obj, (datetime.date, datetime.datetime)):
         return obj.isoformat()
-    if isinstance(obj, Row): # Handle SQLAlchemy Row objects
+    if isinstance(obj, Row):  # Handle SQLAlchemy Row objects
         return dict(obj._mapping)
     raise TypeError(f"Type {type(obj)} not serializable")
 
@@ -126,11 +127,10 @@ def get_player_leaderboard(engine: Engine) -> list[dict]:
     with engine.connect() as conn:
         results = conn.execute(
             sa.text("""
-                SELECT 
-                    id, 
-                    name, 
-                    elo,
-                    RANK() OVER (ORDER BY elo DESC) as rank
+                SELECT
+                    RANK() OVER (ORDER BY elo DESC) as rank,
+                    name,
+                    elo
                 FROM players
                 ORDER BY elo DESC
             """)
@@ -143,10 +143,8 @@ def get_player_commander_leaderboard(engine: Engine) -> list[dict]:
     with engine.connect() as conn:
         results = conn.execute(
             sa.text("""
-                SELECT 
-                    p.id as player_id,
+                SELECT
                     p.name as player_name,
-                    c.id as commander_id,
                     c.name as commander_name,
                     AVG(gp.elo_change) as avg_elo_change,
                     COUNT(*) as games_played,

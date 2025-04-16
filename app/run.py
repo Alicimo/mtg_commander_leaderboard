@@ -1,9 +1,10 @@
 import streamlit as st
 
 from app.admin import show_admin_page
-from app.auth import login_form, logout_button
+from app.auth import login_form
 from app.db import get_engine, init_db
 from app.game import show_game_form
+from app.leaderboard import show_leaderboard
 from app.scryfall import load_all_commanders
 
 
@@ -18,25 +19,26 @@ def main():
     init_db(engine)  # Ensure tables exist
     load_all_commanders(engine)  # Pre-load commanders
 
-    if "admin" in st.query_params:
+    if "admin" not in st.session_state:
+        st.session_state.admin = False
+
+    if st.session_state.admin:
         if not login_form():
             st.stop()  # Don't proceed unless authenticated
         show_admin_page(engine)
     else:
-        logout_button()
         st.title("MTG Commander Leaderboard")
-        
-        tab1, tab2 = st.tabs(["Submit Game", "Leaderboard"])
-        
+
+        tab1, tab2 = st.tabs(["Leaderboard", "Submit Game"])
+
         with tab1:
-            show_game_form(engine)
-            
-        with tab2:
-            from app.leaderboard import show_leaderboard
             show_leaderboard(engine)
-            
-        if st.button("Go to Admin Dashboard"):
-            st.query_params["admin"] = True
+
+        with tab2:
+            show_game_form(engine)
+
+        if st.sidebar.button("Go to Admin Dashboard"):
+            st.session_state.admin = True
             st.rerun()
 
 

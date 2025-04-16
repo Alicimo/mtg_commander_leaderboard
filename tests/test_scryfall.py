@@ -1,16 +1,14 @@
-import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-import requests
 import sqlalchemy as sa
 
 from app.db import get_engine, init_db
 from app.scryfall import (
     cache_commanders,
     get_player_commanders,
-    search_commanders,
     load_all_commanders,
+    search_commanders,
 )
 
 
@@ -40,7 +38,8 @@ def mock_scryfall_response():
                 "name": "Kinnan, Bonder Prodigy",
                 "image_uris": {"normal": "image_url"},
             },
-        ]
+        ],
+        "has_more": False,
     }
 
 
@@ -50,12 +49,15 @@ def test_load_all_commanders(mock_scryfall_response, test_db):
         mock_get.return_value.raise_for_status.return_value = None
 
         load_all_commanders(test_db)
-        
+
         # Verify commanders were loaded
         with test_db.connect() as conn:
             count = conn.execute(sa.text("SELECT COUNT(*) FROM commanders")).scalar()
             assert count == 2
-            names = [r[0] for r in conn.execute(sa.text("SELECT name FROM commanders")).fetchall()]
+            names = [
+                r[0]
+                for r in conn.execute(sa.text("SELECT name FROM commanders")).fetchall()
+            ]
             assert "Atraxa, Praetors' Voice" in names
             assert "Kinnan, Bonder Prodigy" in names
 
@@ -91,9 +93,7 @@ def test_get_player_commanders(test_db):
     # Setup test data
     with test_db.begin() as conn:
         # Add players
-        conn.execute(
-            sa.text("INSERT INTO players (name, elo) VALUES ('Alice', 1000)")
-        )
+        conn.execute(sa.text("INSERT INTO players (name, elo) VALUES ('Alice', 1000)"))
         alice_id = conn.execute(
             sa.text("SELECT id FROM players WHERE name = 'Alice'")
         ).scalar()
@@ -127,5 +127,5 @@ def test_get_player_commanders(test_db):
     results = get_player_commanders(test_db, "Alice")
     assert len(results) == 2
     # Should be ordered by most recent first
-    assert results[0]["name"] == "Commander B"
-    assert results[1]["name"] == "Commander A"
+    assert results[0] == "Commander B"
+    assert results[1] == "Commander A"

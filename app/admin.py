@@ -1,13 +1,10 @@
 import datetime
-import json
-import shutil
-from pathlib import Path
 
 import sqlalchemy as sa
 import streamlit as st
 
 from app.auth import logout_button
-from app.db import DB_PATH, SCHEMA_VERSION, backup_sqlite_db, export_db_to_json
+from app.db import DB_PATH, backup_sqlite_db, export_db_to_json
 
 
 def show_admin_page(engine: sa.engine.Engine) -> None:
@@ -29,25 +26,27 @@ def show_admin_page(engine: sa.engine.Engine) -> None:
     with tab_export:
         tab_data_export(engine)
 
+
 def tab_list_players(engine):
     st.header("All Players")
     with engine.connect() as conn:
         players = conn.execute(
-                sa.text("SELECT id, name, elo FROM players ORDER BY elo DESC")
-            ).fetchall()
+            sa.text("SELECT id, name, elo FROM players ORDER BY elo DESC")
+        ).fetchall()
     if not players:
         st.info("No players yet")
     else:
         st.dataframe(
-                players,
-                column_config={
-                    "id": "ID",
-                    "name": "Name",
-                    "elo": "ELO",
-                },
-                hide_index=True,
-                use_container_width=True,
-            )
+            players,
+            column_config={
+                "id": "ID",
+                "name": "Name",
+                "elo": "ELO",
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
+
 
 def form_delete_player(engine):
     with engine.connect() as conn:
@@ -57,28 +56,29 @@ def form_delete_player(engine):
         with st.form("delete_player"):
             player_options = {f"{p.name} (ID: {p.id})": p.id for p in players}
             selected = st.selectbox(
-                    "Select player to delete",
-                    options=list(player_options.keys()),
-                    key="delete_player_select",
-                )
+                "Select player to delete",
+                options=list(player_options.keys()),
+                key="delete_player_select",
+            )
             submitted = st.form_submit_button("Delete Player")
             if submitted:
                 player_id = player_options[selected]
                 confirm = st.checkbox(
-                        f"Confirm deletion of {selected} and all their game records",
-                        key=f"confirm_delete_{player_id}",
-                    )
+                    f"Confirm deletion of {selected} and all their game records",
+                    key=f"confirm_delete_{player_id}",
+                )
                 if confirm:
                     try:
                         with engine.begin() as conn:
                             conn.execute(
-                                    sa.text("DELETE FROM players WHERE id = :id"),
-                                    {"id": player_id},
-                                )
+                                sa.text("DELETE FROM players WHERE id = :id"),
+                                {"id": player_id},
+                            )
                         st.success(f"Deleted player: {selected}")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error deleting player: {e}")
+
 
 def form_add_player(engine):
     st.header("Add New Player")
@@ -92,11 +92,11 @@ def form_add_player(engine):
                 try:
                     with engine.begin() as conn:
                         conn.execute(
-                                sa.text(
-                                    "INSERT INTO players (name, elo) VALUES (:name, 1000)"
-                                ),
-                                {"name": name},
-                            )
+                            sa.text(
+                                "INSERT INTO players (name, elo) VALUES (:name, 1000)"
+                            ),
+                            {"name": name},
+                        )
                     st.success(f"Added player: {name}")
                 except sa.exc.IntegrityError:
                     st.error(f"Player '{name}' already exists")

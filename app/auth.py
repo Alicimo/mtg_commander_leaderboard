@@ -74,6 +74,7 @@ def logout_button() -> None:
     """Render logout button in sidebar."""
     if st.session_state.get("authenticated"):
         if st.sidebar.button("Logout"):
+            st.session_state.admin = False
             st.session_state.authenticated = False
             st.session_state.login_time = 0
             st.rerun()
